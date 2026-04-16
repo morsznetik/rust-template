@@ -9,7 +9,7 @@ pre-commit:
 commit-msg:
   commands:
     dco:
-      run: "rg -q '^Signed-off-by: .+ <.+>$' {1}"
+      run: "grep -Eq '^Signed-off-by: .+ <.+>$' {1}"
 
 pre-push:
   commands:
