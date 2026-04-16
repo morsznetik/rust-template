@@ -6,6 +6,11 @@ pre-commit:
     clippy:
       run: cargo clippy --workspace --all-targets -- -D warnings
 
+commit-msg:
+  commands:
+    dco:
+      run: "rg -q '^Signed-off-by: .+ <.+>$' {1}"
+
 pre-push:
   commands:
     test:
