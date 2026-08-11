@@ -1,0 +1,75 @@
+name: CI
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+permissions:
+  contents: read
+jobs:
+  dco:
+    name: DCO
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Verify commit sign-offs
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+  
+          if [[ "$BASE" == "0000000000000000000000000000000000000000" ]]; then
+            commits=$(git rev-list "$HEAD")
+          else
+            commits=$(git rev-list "$BASE..$HEAD")
+          fi
+  
+          failed=0
+  
+          for commit in $commits; do
+            trailers=$(git show -s --format=%B "$commit" | git interpret-trailers --parse)
+  
+            if ! grep -Eq '^Signed-off-by: .+ <.+>$' <<<"$trailers"; then
+              echo "::error::Commit $commit is missing a DCO sign-off"
+              git show -s --format='  %h %s' "$commit"
+              failed=1
+            fi
+          done
+  
+          exit "$failed"
+  lint:
+    name: Lint
+    needs: dco
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: crate-ci/typos@v1.49.0
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt,clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+  test:
+    name: Test
+    needs: dco
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          # - windows-latest
+          # - macos-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --workspace --all-features

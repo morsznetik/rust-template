@@ -1,6 +1,8 @@
 pre-commit:
   parallel: true
   commands:
+    typos:
+      run: typos
     fmt:
       run: cargo fmt --all --check
     clippy:
@@ -9,8 +11,9 @@ pre-commit:
 commit-msg:
   commands:
     dco:
-      run: "grep -Eq '^Signed-off-by: .+ <.+>$' {1}"
-
+      run: "git interpret-trailers --parse {1} | grep -Eq '^Signed-off-by: .+ <.+>$'"
+      fail_text: "Commit is missing DCO"
+      
 pre-push:
   commands:
     test:
