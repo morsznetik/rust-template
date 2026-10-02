@@ -1,0 +1,106 @@
+name: Update Rust
+
+on:
+  schedule:
+    - cron: '23 7 1 * *' # avoid rush hour
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: update-rust
+  cancel-in-progress: false
+
+jobs:
+  update:
+    if: github.repository == 'morsznetik/rust-template'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        branch: [crates, simple]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ matrix.branch }}
+      - name: Resolve latest nightly
+        id: rust
+        shell: python
+        run: |
+          import os
+          import re
+          import tomllib
+          from pathlib import Path
+          from urllib.request import urlopen
+
+          def replace_matches(path: Path, pattern: str, replacement: str, expected_count: int = 1) -> None:
+              content, count = re.subn(
+                  pattern,
+                  replacement,
+                  path.read_text(),
+                  flags=re.MULTILINE,
+              )
+              assert count == expected_count, f"expected {expected_count} matches in {path}, got {count}"
+              path.write_text(content)
+
+          with urlopen(
+              "https://static.rust-lang.org/dist/channel-rust-nightly.toml",
+              timeout=60,
+          ) as response:
+              manifest = tomllib.loads(response.read().decode())
+
+          channel = f"nightly-{manifest['date']}"
+          version = manifest["pkg"]["rust"]["version"].split()[0].removesuffix("-nightly")
+
+          toolchain = Path("rust-toolchain.toml")
+          old_channel = tomllib.loads(toolchain.read_text())["toolchain"]["channel"]
+
+          replace_matches(
+              toolchain,
+              rf'^(\s*channel\s*=\s*)"{re.escape(old_channel)}"',
+              rf'\1"{channel}"',
+          )
+
+          replace_matches(
+              Path("Cargo.toml"),
+              r'^(\s*rust-version\s*=\s*)"[^"]+"',
+              rf'\1"{version}"',
+          )
+
+          replace_matches(
+              Path(".github/workflows/ci.yml"),
+              rf'^(\s*toolchain\s*:\s*)(["\']?){re.escape(old_channel)}\2\s*$',
+              rf'\1\2{channel}\2',
+              expected_count=2,
+          )
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as output:
+              print(f"channel={channel}", file=output)
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.rust.outputs.channel }}
+          components: rustfmt,clippy
+      - uses: Swatinem/rust-cache@v2
+      - uses: crate-ci/typos@v1.49.0
+      - run: cargo fmt --all --check
+      - run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
+      - run: cargo test --locked --workspace --all-features
+      - uses: peter-evans/create-pull-request@v8
+        with:
+          branch: updates/rust-${{ matrix.branch }}
+          base: ${{ matrix.branch }}
+          delete-branch: true
+          draft: true
+          sign-commits: true
+          author: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
+          commit-message: 'build: update Rust to ${{ steps.rust.outputs.channel }}'
+          title: 'Update ${{ matrix.branch }} to ${{ steps.rust.outputs.channel }}'
+          body: |
+            Updates the pinned nightly, Rust version, and CI toolchain
+          add-paths: |
+            Cargo.toml
+            rust-toolchain.toml
+            .github/workflows/ci.yml
