@@ -111,17 +111,8 @@ name = "rust-app"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "rust-lib",
  "tracing",
  "tracing-subscriber",
-]
-
-[[package]]
-name = "rust-lib"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "tracing",
 ]
 
 [[package]]

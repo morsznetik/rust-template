@@ -4,7 +4,5 @@ fn main() {
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
         .init();
-    #[expect(unused_must_use, reason = "we don't care")]
-    rust_lib::hello();
     println!("Hello from app!");
 }
