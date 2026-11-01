@@ -28,12 +28,13 @@ jobs:
           set -euo pipefail
   
           # new or rewritten history may have no available previous tip
-          # check all reachable commits so a missing base cannot bypass DCO
+          # check all reachable contributions so a missing base cannot bypass DCO
+          # GitHub merge commits need no trailer; their underlying commits do
           if [[ "$BASE" == "0000000000000000000000000000000000000000" ]] ||
              ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
-            commits=$(git rev-list "$HEAD")
+            commits=$(git rev-list --no-merges "$HEAD")
           else
-            commits=$(git rev-list "$BASE..$HEAD")
+            commits=$(git rev-list --no-merges "$BASE..$HEAD")
           fi
   
           failed=0
