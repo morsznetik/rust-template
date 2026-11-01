@@ -69,13 +69,6 @@ jobs:
               rf'\1"{version}"',
           )
 
-          replace_matches(
-              Path(".github/workflows/ci.yml"),
-              rf'^(\s*toolchain\s*:\s*)(["\']?){re.escape(old_channel)}\2\s*$',
-              rf'\1\2{channel}\2',
-              expected_count=2,
-          )
-
           with open(os.environ["GITHUB_OUTPUT"], "a") as output:
               print(f"channel={channel}", file=output)
 
@@ -95,12 +88,12 @@ jobs:
           delete-branch: true
           draft: true
           sign-commits: true
+          signoff: true
           author: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>
           commit-message: 'build: update Rust to ${{ steps.rust.outputs.channel }}'
           title: 'Update ${{ matrix.branch }} to ${{ steps.rust.outputs.channel }}'
           body: |
-            Updates the pinned nightly, Rust version, and CI toolchain
+            Updates the pinned nightly and Rust version; CI reads rust-toolchain.toml
           add-paths: |
             Cargo.toml
             rust-toolchain.toml
-            .github/workflows/ci.yml
