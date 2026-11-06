@@ -6,8 +6,7 @@ on:
   pull_request:
   push:
     branches:
-      - crates
-      - simple
+      - '**'
 permissions:
   contents: read
 jobs:
